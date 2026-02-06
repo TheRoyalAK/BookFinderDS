@@ -1,4 +1,6 @@
 fastapi
-sqlite3
-faiss
-sentence_transformers
+uvicorn[standard]
+faiss-cpu
+sentence-transformers
+torch --index-url https://download.pytorch.org/whl/cpu
+numpy
