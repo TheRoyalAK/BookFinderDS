@@ -1,8 +1,23 @@
 import streamlit as st
-from requests import request
+import sqlite3
+import faiss
+import numpy as np
+from fastembed import TextEmbedding
 
 
-BACKEND_URL = "http://127.0.0.1:8000/query/"
+DB_PATH = "./books.db"
+
+VDB_PATH = "./FastEmbedIndex.faiss"
+
+MODEL_PATH = "./model"
+
+model = TextEmbedding("BAAI/bge-small-en-v1.5", cache_dir=MODEL_PATH)
+
+vdb = faiss.read_index(VDB_PATH)
+
+conn = sqlite3.connect(DB_PATH)
+conn.row_factory = sqlite3.Row
+cursor = conn.cursor()
 
 st.set_page_config("BookFinder", layout="wide")
 
@@ -191,8 +206,33 @@ def book_card(book):
 </label>
 """, unsafe_allow_html=True)
 
+
+def aggregate_results(result):
+
+    scores, indices = result
+    
+    agg = {}
+
+    for i, s in zip(indices[0].tolist(), scores[0].tolist()):
+        agg[i] = agg.get(i, 0) + s
+
+    return sorted(agg.items(), key=lambda x: x[1], reverse=True)
+
+
+
 if q:
-    api_req = request('GET', f"{BACKEND_URL}{q}")
-    api_res = api_req.json()
-    for book in api_res:
+    query = list(model.embed([q]))
+    results = vdb.search(np.array(query), 10)
+    agg_res = aggregate_results(results)
+    ids = [id for id, _ in agg_res]
+    
+    rows = cursor.execute(
+        f"SELECT * FROM book WHERE AccNo IN ({','.join('?'*len(ids))})",
+        ids
+    ).fetchall()
+    
+    row_map = {row["AccNo"]: row for row in rows}
+    ordered = [row_map[i] for i in ids if i in row_map] 
+
+    for book in ordered:
         book_card(book)
