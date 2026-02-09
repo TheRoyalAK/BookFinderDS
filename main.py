@@ -222,7 +222,7 @@ def aggregate_results(result):
 
 if q:
     query = list(model.embed([q]))
-    results = vdb.search(np.array(query), 10)
+    results = vdb.search(np.array(query), 20)
     agg_res = aggregate_results(results)
     ids = [id for id, _ in agg_res]
     
